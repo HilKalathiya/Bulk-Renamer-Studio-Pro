@@ -182,9 +182,12 @@ class UltimateRenamerApp:
         # Logic State
         self.df = None
         self.folder_isrc_cache = {}
+
         self.excel_path = tk.StringVar()
         self.root_folder_path = tk.StringVar()
         self.var_enable_isrc = tk.BooleanVar(value=True)
+        self.var_case_sensitive = tk.BooleanVar(value=False)  # Default: Not strict
+
         self.util_folder_path = tk.StringVar()
         self.util_find = tk.StringVar()
         self.util_replace = tk.StringVar()
@@ -350,13 +353,13 @@ class UltimateRenamerApp:
         )
 
         # Row 2: Mapping (Rounded Panel)
-        row2 = RoundedFrame(self.workspace, width=900, height=280)
+        row2 = RoundedFrame(self.workspace, width=900, height=320)
         row2.pack(pady=20, anchor="w")
 
         inner2 = row2.inner
         tk.Label(
             inner2,
-            text="COLUMN MAPPING",
+            text="COLUMN MAPPING & SETTINGS",
             bg=THEME["panel"],
             fg=THEME["text_sub"],
             font=FONTS["label"],
@@ -370,10 +373,14 @@ class UltimateRenamerApp:
         self.combo_eng = self.make_combo(grid, 1, 0, "English Name Column")
         self.combo_isrc = self.make_combo(grid, 1, 1, "ISRC Column")
 
-        # Toggle
+        # Options
+        opts_frame = tk.Frame(inner2, bg=THEME["panel"])
+        opts_frame.pack(fill="x", pady=20)
+
+        # ISRC Toggle
         tk.Checkbutton(
-            inner2,
-            text=" Smart ISRC (Popup if missing)",
+            opts_frame,
+            text=" Smart ISRC (Ask popup if missing)",
             variable=self.var_enable_isrc,
             bg=THEME["panel"],
             fg="white",
@@ -381,7 +388,20 @@ class UltimateRenamerApp:
             activebackground=THEME["panel"],
             activeforeground="white",
             font=FONTS["body"],
-        ).pack(anchor="w", pady=20)
+        ).pack(side="left", padx=(0, 20))
+
+        # Case Sensitive Toggle
+        tk.Checkbutton(
+            opts_frame,
+            text=" Strict Case Match (File must match Excel exactly)",
+            variable=self.var_case_sensitive,
+            bg=THEME["panel"],
+            fg="white",
+            selectcolor=THEME["bg"],
+            activebackground=THEME["panel"],
+            activeforeground="white",
+            font=FONTS["body"],
+        ).pack(side="left")
 
         # Action & Log
         action_bar = tk.Frame(self.workspace, bg=THEME["bg"])
@@ -587,8 +607,9 @@ class UltimateRenamerApp:
         c_fold, c_file = self.combo_folder.get(), self.combo_file.get()
         c_eng, c_isrc = self.combo_eng.get(), self.combo_isrc.get()
         use_isrc = self.var_enable_isrc.get()
+        strict_case = self.var_case_sensitive.get()
 
-        self.log("Starting...")
+        self.log("Starting batch process...")
         self.folder_isrc_cache = {}
         count = 0
 
@@ -605,21 +626,37 @@ class UltimateRenamerApp:
                     ext = ".wav"
                 target_file = name + ext
 
-                # Logic: Find file (Strict Case or Loose)
+                # --- FILE FINDING LOGIC ---
                 found_path = None
                 parent_dir = None
 
-                # Check inner
-                p1 = os.path.join(root, folder, target_file)
-                if os.path.exists(p1):
-                    found_path = p1
-                    parent_dir = os.path.join(root, folder)
-                else:
-                    # Check root
-                    p2 = os.path.join(root, target_file)
-                    if os.path.exists(p2):
-                        found_path = p2
-                        parent_dir = root
+                # Search paths: [Root/Folder, Root]
+                search_dirs = []
+                # Always check inner folder if specified
+                inner = os.path.join(root, folder)
+                if os.path.exists(inner):
+                    search_dirs.append(inner)
+                search_dirs.append(root)
+
+                for d in search_dirs:
+                    if not os.path.exists(d):
+                        continue
+
+                    # Case-Sensitivity Handler
+                    if strict_case:
+                        # Exact match required
+                        if os.path.exists(os.path.join(d, target_file)):
+                            # Double check because Windows os.path.exists is loose
+                            if target_file in os.listdir(d):
+                                found_path = os.path.join(d, target_file)
+                                parent_dir = d
+                                break
+                    else:
+                        # Loose match
+                        if os.path.exists(os.path.join(d, target_file)):
+                            found_path = os.path.join(d, target_file)
+                            parent_dir = d
+                            break
 
                 if not found_path:
                     continue
@@ -645,7 +682,7 @@ class UltimateRenamerApp:
                 new_full = os.path.join(parent_dir, new_name)
 
                 if found_path != new_full:
-                    # Handle Windows case-insensitivity
+                    # Windows Case Fix logic
                     if found_path.lower() == new_full.lower():
                         os.rename(found_path, found_path + "_tmp")
                         os.rename(found_path + "_tmp", new_full)
