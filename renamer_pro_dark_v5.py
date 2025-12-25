@@ -217,13 +217,13 @@ class DarkRenamerApp:
 
         self.excel_path.set(file_path)
         try:
-            # TRY READING ROW 1 (Index 1) AS HEADER FIRST (Fix for Studio Data row)
+            # TRY READING ROW 1 (Index 1) AS HEADER FIRST
             if file_path.endswith(".csv"):
                 self.df = pd.read_csv(file_path, header=1)
             else:
                 self.df = pd.read_excel(file_path, header=1)
 
-            # Validation: If 'Folder Name' isn't found, maybe they don't have the Studio Data row?
+            # Validation: Try Row 0 if Row 1 fails
             if (
                 "Folder Name" not in self.df.columns
                 and "File Name" not in self.df.columns
@@ -290,7 +290,6 @@ class DarkRenamerApp:
 
         # Reset Cache for this run
         self.folder_isrc_cache = {}
-
         processed = 0
         skipped = 0
 
@@ -299,21 +298,30 @@ class DarkRenamerApp:
             try:
                 # Clean Data
                 folder_name = str(row[c_folder]).strip()
-                current_file = str(row[c_file]).strip()
+                current_file_full = str(
+                    row[c_file]
+                ).strip()  # might be "01_Track" or "01_Track.wav"
                 english_name = str(row[c_new]).strip()
 
-                if folder_name == "nan" or current_file == "nan":
+                if folder_name == "nan" or current_file_full == "nan":
                     continue
 
-                # Ensure extension logic (assuming input files are wav if not specified)
-                if not current_file.lower().endswith(".wav"):
-                    current_file += ".wav"
+                # Ensure we separate root and extension properly
+                name_root, name_ext = os.path.splitext(current_file_full)
+                if not name_ext:
+                    name_ext = ".wav"
 
-                # 1. DETERMINE FILE PATH (Parent vs Inner Logic)
-                path_in_subfolder = os.path.join(root_dir, folder_name, current_file)
-                path_direct = os.path.join(root_dir, current_file)
+                # Reconstruct standardized file name for lookup
+                current_file_with_ext = name_root + name_ext
+
+                # 1. DETERMINE FILE PATH
+                path_in_subfolder = os.path.join(
+                    root_dir, folder_name, current_file_with_ext
+                )
+                path_direct = os.path.join(root_dir, current_file_with_ext)
 
                 actual_old_path = None
+                parent_path = None
 
                 if os.path.exists(path_in_subfolder):
                     actual_old_path = path_in_subfolder
@@ -322,59 +330,59 @@ class DarkRenamerApp:
                     actual_old_path = path_direct
                     parent_path = root_dir
                 else:
-                    # File not found
-                    # Check if it was ALREADY renamed (idempotency)
                     skipped += 1
                     continue
 
-                # 2. HANDLE MISSING ENGLISH NAME
-                if english_name == "nan" or english_name == "":
-                    new_filename = f"_ {current_file}"
-                    self.log(f"[NO NAME] Renaming to: {new_filename}")
-                else:
-                    # 3. HANDLE ISRC LOGIC (The Smart Cache)
-                    isrc_val = ""
+                # 2. RESOLVE ISRC (Prioritize this so it runs even if English Name is missing)
+                isrc_val = ""
 
-                    # A. Try fetch from Excel
-                    if c_isrc != "-- Select Column --" and pd.notna(row[c_isrc]):
-                        isrc_val = str(row[c_isrc]).strip()
+                # A. Try fetch from Excel
+                if c_isrc != "-- Select Column --" and pd.notna(row[c_isrc]):
+                    isrc_val = str(row[c_isrc]).strip()
 
-                    # B. If Excel is empty, check CACHE or ASK USER
-                    if not isrc_val:
-                        if folder_name in self.folder_isrc_cache:
-                            # We already asked for this folder! Use the saved code.
-                            isrc_val = self.folder_isrc_cache[folder_name]
-                        else:
-                            # We haven't asked for this folder yet.
-                            # Bring window to front
-                            self.root.deiconify()
-                            user_input = simpledialog.askstring(
-                                "ISRC Missing",
-                                f"ISRC missing for Folder: {folder_name}\n\nEnter ISRC to apply to ALL tracks in this folder:\n(Leave empty to skip ISRC)",
-                                parent=self.root,
-                            )
-                            if user_input:
-                                isrc_val = user_input.strip()
-                            else:
-                                isrc_val = ""  # User cancelled or left empty
-
-                            # Save to cache so we don't ask again for this folder
-                            self.folder_isrc_cache[folder_name] = isrc_val
-
-                    # Construct New Name
-                    if isrc_val:
-                        new_filename = f"{english_name}_{isrc_val}.wav"
+                # B. If Excel is empty, check CACHE or ASK USER
+                if not isrc_val:
+                    if folder_name in self.folder_isrc_cache:
+                        isrc_val = self.folder_isrc_cache[folder_name]
                     else:
-                        new_filename = f"{english_name}.wav"
+                        # Bring window to front
+                        self.root.deiconify()
+                        user_input = simpledialog.askstring(
+                            "ISRC Missing",
+                            f"ISRC missing for Folder: {folder_name}\n\nEnter ISRC to apply to ALL tracks in this folder:\n(Leave empty to skip ISRC)",
+                            parent=self.root,
+                        )
+                        if user_input:
+                            isrc_val = user_input.strip()
+                        else:
+                            isrc_val = ""
 
-                # 4. EXECUTE RENAME
+                        self.folder_isrc_cache[folder_name] = isrc_val
+
+                # 3. CONSTRUCT NEW BASE NAME
+                if english_name == "nan" or english_name == "":
+                    # Case: Missing English Name -> Use "_OriginalFile" (No Space)
+                    base_name = f"_{name_root}"
+                    log_tag = "[NO NAME]"
+                else:
+                    # Case: Standard
+                    base_name = english_name
+                    log_tag = "[OK]"
+
+                # 4. APPEND ISRC AND EXTENSION
+                if isrc_val:
+                    new_filename = f"{base_name}_{isrc_val}{name_ext}"
+                else:
+                    new_filename = f"{base_name}{name_ext}"
+
+                # 5. EXECUTE RENAME
                 new_full_path = os.path.join(parent_path, new_filename)
 
                 if os.path.exists(new_full_path):
                     self.log(f"[SKIP] Exists: {new_filename}")
                 else:
                     os.rename(actual_old_path, new_full_path)
-                    self.log(f"[OK] {current_file} -> {new_filename}")
+                    self.log(f"{log_tag} {current_file_with_ext} -> {new_filename}")
                     processed += 1
 
             except Exception as e:
