@@ -7,7 +7,7 @@ from tkinter import filedialog, messagebox, scrolledtext, ttk, simpledialog
 class DarkRenamerApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Master Audio Renamer (Dark Mode)")
+        self.root.title("Master Audio Renamer (Dark Mode - Smart ISRC)")
         self.root.geometry("1000x800")
 
         # --- DARK THEME SETTINGS ---
@@ -24,6 +24,9 @@ class DarkRenamerApp:
         self.root_folder_path = tk.StringVar()
         self.df = None
 
+        # Cache to store manual ISRCs per folder { 'Folder_Name': 'ISRC_CODE' }
+        self.folder_isrc_cache = {}
+
         # --- UI LAYOUT ---
 
         # 1. Header
@@ -35,6 +38,13 @@ class DarkRenamerApp:
             font=("Segoe UI", 18, "bold"),
             bg=self.bg_color,
             fg=self.accent_color,
+        ).pack()
+        tk.Label(
+            header_frame,
+            text="Smart Bulk Renaming with Folder-Level ISRC",
+            font=("Segoe UI", 10),
+            bg=self.bg_color,
+            fg="#aaaaaa",
         ).pack()
 
         # 2. Configuration Section
@@ -214,7 +224,6 @@ class DarkRenamerApp:
                 self.df = pd.read_excel(file_path, header=1)
 
             # Validation: If 'Folder Name' isn't found, maybe they don't have the Studio Data row?
-            # Try reloading with header=0
             if (
                 "Folder Name" not in self.df.columns
                 and "File Name" not in self.df.columns
@@ -279,6 +288,9 @@ class DarkRenamerApp:
 
         self.log("--- STARTING PROCESS ---", "#00adb5")
 
+        # Reset Cache for this run
+        self.folder_isrc_cache = {}
+
         processed = 0
         skipped = 0
 
@@ -293,11 +305,11 @@ class DarkRenamerApp:
                 if folder_name == "nan" or current_file == "nan":
                     continue
 
+                # Ensure extension logic (assuming input files are wav if not specified)
                 if not current_file.lower().endswith(".wav"):
                     current_file += ".wav"
 
                 # 1. DETERMINE FILE PATH (Parent vs Inner Logic)
-                # Strategy: Try finding file in Root/FolderName/File. If not, try Root/File.
                 path_in_subfolder = os.path.join(root_dir, folder_name, current_file)
                 path_direct = os.path.join(root_dir, current_file)
 
@@ -312,7 +324,6 @@ class DarkRenamerApp:
                 else:
                     # File not found
                     # Check if it was ALREADY renamed (idempotency)
-                    # We can't easily guess the new name if ISRC was manual, so we just skip/log
                     skipped += 1
                     continue
 
@@ -321,24 +332,34 @@ class DarkRenamerApp:
                     new_filename = f"_ {current_file}"
                     self.log(f"[NO NAME] Renaming to: {new_filename}")
                 else:
-                    # 3. HANDLE ISRC (Automatic or Manual Popup)
+                    # 3. HANDLE ISRC LOGIC (The Smart Cache)
                     isrc_val = ""
 
-                    # Try fetch from Excel
+                    # A. Try fetch from Excel
                     if c_isrc != "-- Select Column --" and pd.notna(row[c_isrc]):
                         isrc_val = str(row[c_isrc]).strip()
 
-                    # If Missing -> PAUSE AND ASK USER
+                    # B. If Excel is empty, check CACHE or ASK USER
                     if not isrc_val:
-                        # Bring window to front
-                        self.root.deiconify()
-                        user_input = simpledialog.askstring(
-                            "ISRC Missing",
-                            f"ISRC missing for track:\nFolder: {folder_name}\nTrack: {english_name}\n\nEnter ISRC (or leave empty to skip ISRC):",
-                            parent=self.root,
-                        )
-                        if user_input:
-                            isrc_val = user_input.strip()
+                        if folder_name in self.folder_isrc_cache:
+                            # We already asked for this folder! Use the saved code.
+                            isrc_val = self.folder_isrc_cache[folder_name]
+                        else:
+                            # We haven't asked for this folder yet.
+                            # Bring window to front
+                            self.root.deiconify()
+                            user_input = simpledialog.askstring(
+                                "ISRC Missing",
+                                f"ISRC missing for Folder: {folder_name}\n\nEnter ISRC to apply to ALL tracks in this folder:\n(Leave empty to skip ISRC)",
+                                parent=self.root,
+                            )
+                            if user_input:
+                                isrc_val = user_input.strip()
+                            else:
+                                isrc_val = ""  # User cancelled or left empty
+
+                            # Save to cache so we don't ask again for this folder
+                            self.folder_isrc_cache[folder_name] = isrc_val
 
                     # Construct New Name
                     if isrc_val:
@@ -355,7 +376,7 @@ class DarkRenamerApp:
                     os.rename(actual_old_path, new_full_path)
                     self.log(f"[OK] {current_file} -> {new_filename}")
                     processed += 1
-    
+
             except Exception as e:
                 self.log(f"[ERROR] Row {index}: {e}", "#ff5555")
 
