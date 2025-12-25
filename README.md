@@ -39,7 +39,7 @@ A powerful, modern, and aesthetically pleasing bulk file renaming tool designed 
 
 | **Excel Mode** | **Utility Mode** |
 |:---:|:---:|
-| ![Excel Mode Screenshot](![alt text](image.png)) | ![Utility Mode Screenshot](![alt text](image-1.png)) |
+| ![Excel Mode Screenshot]![alt text](image.png) | ![Utility Mode Screenshot]![alt text](image-1.png) |
 
 ---
 
