@@ -36,12 +36,12 @@ A professional, high-contrast bulk renaming tool designed for Audio Engineers an
 ## 📸 Screenshots
 
 ### Smart Rename (Excel Mode)
-![Smart Rename Interface](https://raw.githubusercontent.com/HilKalathiya/Bulk-renamer-from-Excel/main/screenshots/smart-rename.png)
+![Smart Rename Interface](smart-rename.png)
 
 *Renamer Studio Pro interface showing the Smart Rename tab with Source Configuration section displaying Header Row set to 2, Excel Database and Music Folder input fields, and Column Mapping area with dropdown fields for Folder Name Column, Current Filename Column, New Track Name Column, and ISRC Column. Smart ISRC checkbox is enabled. A blue Start Renaming button is positioned at the bottom of the configuration panel.*
 
 ### Quick Utility (Manual Mode)
-![Quick Utility Interface](https://raw.githubusercontent.com/HilKalathiya/Bulk-renamer-from-Excel/main/screenshots/quick-utility.png)
+![Quick Utility Interface](quick-utility.png)
 
 *Renamer Studio Pro interface displaying the Quick Utility tab with bulk operation options for find and replace, prefix/suffix addition, text case conversion, and auto-numbering features for manual file renaming tasks.*
 
