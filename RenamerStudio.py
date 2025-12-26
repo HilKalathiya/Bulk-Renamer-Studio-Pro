@@ -4,31 +4,30 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext, ttk, simpledialog
 import pandas as pd
 
-# --- 2025 DESIGN SYSTEM (Deep Ocean Theme) ---
+# --- GEMINI DESIGN SYSTEM ---
 THEME = {
-    "bg": "#0f172a",  # Deep Slate (Main Background)
-    "panel": "#1e293b",  # Card Background
-    "input_bg": "#334155",  # Input Field Background
-    "text_main": "#f8fafc",  # White-ish text
-    "text_sub": "#94a3b8",  # Grey text
-    "accent": "#38bdf8",  # Sky Blue (Primary Action)
-    "accent_hover": "#0ea5e9",  # Darker Sky Blue
-    "success": "#22c55e",  # Green
-    "border": "#475569",  # Subtle borders
+    "bg": "#131314",  # Gemini Dark BG
+    "panel": "#1E1F20",  # Card Surface
+    "input_bg": "#2D2E30",  # Input Field
+    "text_main": "#E3E3E3",  # Primary Text
+    "text_sub": "#C4C7C5",  # Secondary Text
+    "accent": "#8AB4F8",  # Gemini Blue
+    "accent_hover": "#AECBFA",  # Lighter Blue
+    "success": "#81C995",  # Soft Green
+    "border": "#444746",  # Border outline
 }
 
 FONTS = {
-    "header": ("Segoe UI", 20, "bold"),
-    "sub": ("Segoe UI", 12),
-    "label": ("Segoe UI", 10, "bold"),
-    "body": ("Segoe UI", 10),
-    "mono": ("Consolas", 10),
+    "header": ("Google Sans", 22, "bold"),
+    "sub": ("Google Sans", 12),
+    "label": ("Google Sans", 10, "bold"),
+    "body": ("Roboto", 10),
+    "mono": ("Roboto Mono", 10),
 }
 
 
-# --- GRAPHICS ENGINE (For Rounded UI) ---
+# --- GRAPHICS ENGINE ---
 def rounded_rect(canvas, x, y, w, h, r, color):
-    """Draws a high-quality rounded rectangle on a canvas"""
     pts = [
         x + r,
         y,
@@ -61,23 +60,14 @@ def rounded_rect(canvas, x, y, w, h, r, color):
 
 
 class RoundedFrame(tk.Canvas):
-    """A container that looks like a rounded card"""
-
     def __init__(
-        self, master, width, height, bg_color=THEME["panel"], corner_radius=25
+        self, master, width, height, bg_color=THEME["panel"], corner_radius=20
     ):
         super().__init__(
             master, width=width, height=height, bg=THEME["bg"], highlightthickness=0
         )
         self.bg_color = bg_color
-        self.r = corner_radius
-        self.w = width
-        self.h = height
-
-        # Draw background
-        self.shape = rounded_rect(self, 0, 0, width, height, self.r, self.bg_color)
-
-        # Inner container for widgets
+        rounded_rect(self, 0, 0, width, height, corner_radius, self.bg_color)
         self.inner = tk.Frame(self, bg=self.bg_color)
         self.create_window(
             width / 2,
@@ -85,25 +75,23 @@ class RoundedFrame(tk.Canvas):
             window=self.inner,
             width=width - 30,
             height=height - 30,
-        )  # Padding inside card
+        )
 
     def add_widget(self, widget, **pack_kwargs):
         widget.pack(**pack_kwargs)
 
 
 class RoundedButton(tk.Canvas):
-    """A pill-shaped interactive button"""
-
     def __init__(
         self,
         master,
         text,
         command,
-        width=160,
-        height=45,
+        width=140,
+        height=40,
         bg=THEME["accent"],
         fg="#000000",
-        radius=22,
+        radius=18,
     ):
         super().__init__(
             master, width=width, height=height, bg=master["bg"], highlightthickness=0
@@ -111,41 +99,23 @@ class RoundedButton(tk.Canvas):
         self.command = command
         self.bg_normal = bg
         self.bg_hover = THEME["accent_hover"]
-
-        # Draw
         self.shape = rounded_rect(
             self, 2, 2, width - 2, height - 2, radius, self.bg_normal
         )
         self.text = self.create_text(
-            width / 2, height / 2, text=text, fill=fg, font=("Segoe UI", 11, "bold")
+            width / 2, height / 2, text=text, fill=fg, font=("Google Sans", 10, "bold")
         )
-
-        # Events
-        self.bind("<Enter>", self._hover)
-        self.bind("<Leave>", self._leave)
-        self.bind("<Button-1>", self._click)
-
-    def _hover(self, e):
-        self.itemconfig(self.shape, fill=self.bg_hover)
-
-    def _leave(self, e):
-        self.itemconfig(self.shape, fill=self.bg_normal)
-
-    def _click(self, e):
-        if self.command:
-            self.command()
+        self.bind("<Enter>", lambda e: self.itemconfig(self.shape, fill=self.bg_hover))
+        self.bind("<Leave>", lambda e: self.itemconfig(self.shape, fill=self.bg_normal))
+        self.bind("<Button-1>", lambda e: command() if command else None)
 
 
 class RoundedEntry(tk.Canvas):
-    """A rounded input field container"""
-
-    def __init__(self, master, width=200, height=35, radius=15):
+    def __init__(self, master, width=200, height=35, radius=12):
         super().__init__(
             master, width=width, height=height, bg=THEME["panel"], highlightthickness=0
         )
-
         rounded_rect(self, 2, 2, width - 2, height - 2, radius, THEME["input_bg"])
-
         self.entry = tk.Entry(
             self,
             bg=THEME["input_bg"],
@@ -169,24 +139,26 @@ class RoundedEntry(tk.Canvas):
         self.entry.config(textvariable=text_var)
 
 
-# --- MAIN APPLICATION ---
-
-
+# --- APP CLASS ---
 class UltimateRenamerApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Renamer Studio 2025")
-        self.root.geometry("1280x900")
+        self.root.title("Renamer AI (Gemini Edition)")
+        self.root.geometry("1300x950")
         self.root.configure(bg=THEME["bg"])
 
-        # Logic State
+        # Data
         self.df = None
-        self.folder_isrc_cache = {}
+        self.manual_overrides = (
+            {}
+        )  # Stores manual filenames {original_name: new_manual_name}
 
+        # Vars
         self.excel_path = tk.StringVar()
         self.root_folder_path = tk.StringVar()
         self.var_enable_isrc = tk.BooleanVar(value=True)
-        self.var_case_sensitive = tk.BooleanVar(value=False)  # Default: Not strict
+        self.var_strict_case = tk.BooleanVar(value=False)
+        self.var_header_row = tk.IntVar(value=2)
 
         self.util_folder_path = tk.StringVar()
         self.util_find = tk.StringVar()
@@ -198,8 +170,8 @@ class UltimateRenamerApp:
         self.util_num_start = tk.IntVar(value=1)
 
         self.setup_styles()
-        self.build_layout()
-        self.show_excel_view()
+        self.build_ui()
+        self.show_excel_view()  # Default
 
     def setup_styles(self):
         style = ttk.Style()
@@ -208,7 +180,6 @@ class UltimateRenamerApp:
         except:
             pass
 
-        # Modern Combobox
         style.configure(
             "TCombobox",
             fieldbackground=THEME["input_bg"],
@@ -219,20 +190,19 @@ class UltimateRenamerApp:
         )
         style.map("TCombobox", fieldbackground=[("readonly", THEME["input_bg"])])
 
-        # Modern Treeview
         style.configure(
             "Treeview",
             background=THEME["input_bg"],
-            foreground="white",
+            foreground=THEME["text_main"],
             fieldbackground=THEME["input_bg"],
             borderwidth=0,
-            rowheight=30,
+            rowheight=40,
             font=FONTS["body"],
         )
         style.configure(
             "Treeview.Heading",
             background=THEME["panel"],
-            foreground="white",
+            foreground=THEME["text_main"],
             font=FONTS["label"],
             relief="flat",
         )
@@ -242,178 +212,159 @@ class UltimateRenamerApp:
             foreground=[("selected", "black")],
         )
 
-    def build_layout(self):
-        # 1. Sidebar
+    def build_ui(self):
+        # Sidebar
         self.sidebar = tk.Frame(self.root, bg=THEME["bg"], width=260)
-        self.sidebar.pack(side="left", fill="y", padx=0, pady=0)
+        self.sidebar.pack(side="left", fill="y")
         self.sidebar.pack_propagate(False)
 
-        # Logo
         tk.Label(
             self.sidebar,
-            text="RENAMER",
+            text="Gemini",
             bg=THEME["bg"],
             fg="white",
-            font=("Segoe UI", 26, "bold"),
-        ).pack(anchor="w", padx=30, pady=(50, 0))
+            font=("Google Sans", 26),
+        ).pack(anchor="w", padx=30, pady=(40, 0))
         tk.Label(
             self.sidebar,
-            text="STUDIO PRO",
+            text="RENAMER TOOL",
             bg=THEME["bg"],
             fg=THEME["accent"],
-            font=("Segoe UI", 10, "bold"),
+            font=("Google Sans", 10, "bold"),
         ).pack(anchor="w", padx=32)
 
-        # Nav
-        self.nav_container = tk.Frame(self.sidebar, bg=THEME["bg"])
-        self.nav_container.pack(fill="x", pady=50)
+        self.nav_frame = tk.Frame(self.sidebar, bg=THEME["bg"])
+        self.nav_frame.pack(fill="x", pady=60)
 
-        self.btn_excel = self.nav_button("Smart Rename (Excel)", self.show_excel_view)
-        self.btn_util = self.nav_button("Quick Utility Tools", self.show_util_view)
+        self.btn_excel = self.create_nav_btn("Smart Rename", self.show_excel_view)
+        self.btn_util = self.create_nav_btn("Quick Utility", self.show_util_view)
 
-        # 2. Main Content
+        # Content
         self.main = tk.Frame(self.root, bg=THEME["bg"])
         self.main.pack(side="left", fill="both", expand=True, padx=40, pady=40)
-
         self.header = tk.Label(
             self.main, text="Overview", bg=THEME["bg"], fg="white", font=FONTS["header"]
         )
         self.header.pack(anchor="w", pady=(0, 20))
-
         self.workspace = tk.Frame(self.main, bg=THEME["bg"])
         self.workspace.pack(fill="both", expand=True)
 
-    def nav_button(self, text, cmd):
-        f = tk.Frame(self.nav_container, bg=THEME["bg"], pady=5)
+    def create_nav_btn(self, text, cmd):
+        f = tk.Frame(self.nav_frame, bg=THEME["bg"], pady=5)
         f.pack(fill="x")
-
-        indicator = tk.Frame(f, width=4, height=35, bg=THEME["bg"])
-        indicator.pack(side="left")
-
+        ind = tk.Frame(f, width=4, height=40, bg=THEME["bg"])
+        ind.pack(side="left")
         b = tk.Button(
             f,
             text=f"  {text}",
-            command=lambda: self.switch_tab(cmd, b, indicator),
+            command=lambda: self.switch_view(cmd, b, ind),
             bg=THEME["bg"],
             fg=THEME["text_sub"],
-            font=("Segoe UI", 11),
+            font=("Google Sans", 11),
             bd=0,
-            relief="flat",
             activebackground=THEME["bg"],
             activeforeground="white",
             anchor="w",
         )
-        b.pack(side="left", fill="x", expand=True, padx=15)
-        return {"btn": b, "ind": indicator}
+        b.pack(side="left", fill="x", padx=15)
+        return {"btn": b, "ind": ind}
 
-    def switch_tab(self, cmd, btn_obj, ind_obj):
-        # Reset
+    def switch_view(self, cmd, b, ind):
         for item in [self.btn_excel, self.btn_util]:
             item["ind"].config(bg=THEME["bg"])
-            item["btn"].config(fg=THEME["text_sub"])
-        # Active
-        ind_obj.config(bg=THEME["accent"])
-        btn_obj.config(fg="white")
+            item["btn"].config(fg=THEME["text_sub"], font=("Google Sans", 11))
+        ind.config(bg=THEME["accent"])
+        b.config(fg="white", font=("Google Sans", 11, "bold"))
         cmd()
 
-    def clear_workspace(self):
+    def clear_view(self):
         for w in self.workspace.winfo_children():
             w.destroy()
 
-    # ================= VIEW: EXCEL =================
+    # --- VIEW: EXCEL ---
     def show_excel_view(self):
-        self.clear_workspace()
-        self.switch_tab(
-            lambda: None, self.btn_excel["btn"], self.btn_excel["ind"]
-        )  # Visual sync
-        self.header.config(text="Smart Renaming")
+        self.clear_view()
+        self.switch_view(lambda: None, self.btn_excel["btn"], self.btn_excel["ind"])
+        self.header.config(text="Smart Renaming (Excel)")
 
-        # Row 1: File Config (Rounded Panel)
-        row1 = RoundedFrame(self.workspace, width=900, height=220)
-        row1.pack(pady=0, anchor="w")
+        # Config Panel
+        panel = RoundedFrame(self.workspace, width=900, height=220)
+        panel.pack(anchor="w")
+        inner = panel.inner
 
-        inner = row1.inner
         tk.Label(
             inner,
-            text="SOURCE FILES",
+            text="SOURCE CONFIG",
             bg=THEME["panel"],
             fg=THEME["text_sub"],
             font=FONTS["label"],
-        ).pack(anchor="w", pady=(0, 15))
+        ).pack(anchor="w", pady=(0, 10))
 
-        self.make_file_picker(
-            inner, "Excel Database:", self.excel_path, self.load_excel_preview
+        # Header Row
+        h_box = tk.Frame(inner, bg=THEME["panel"])
+        h_box.pack(anchor="w", pady=(0, 10))
+        tk.Label(
+            h_box, text="Header Row:", bg=THEME["panel"], fg=THEME["text_main"]
+        ).pack(side="left")
+        tk.Spinbox(
+            h_box,
+            from_=1,
+            to=10,
+            textvariable=self.var_header_row,
+            width=3,
+            bg=THEME["input_bg"],
+            fg="white",
+            buttonbackground=THEME["input_bg"],
+        ).pack(side="left", padx=10)
+
+        self.make_file_input(
+            inner, "Excel File:", self.excel_path, self.load_excel_preview
         )
-        tk.Frame(inner, height=10, bg=THEME["panel"]).pack()  # Spacer
-        self.make_file_picker(
+        tk.Frame(inner, height=10, bg=THEME["panel"]).pack()
+        self.make_file_input(
             inner,
             "Music Folder:",
             self.root_folder_path,
             lambda: self.browse(self.root_folder_path),
         )
 
-        # Row 2: Mapping (Rounded Panel)
-        row2 = RoundedFrame(self.workspace, width=900, height=320)
-        row2.pack(pady=20, anchor="w")
+        # Mapping Panel
+        panel2 = RoundedFrame(self.workspace, width=900, height=300)
+        panel2.pack(anchor="w", pady=20)
+        inner2 = panel2.inner
 
-        inner2 = row2.inner
         tk.Label(
             inner2,
-            text="COLUMN MAPPING & SETTINGS",
+            text="DATA MAPPING",
             bg=THEME["panel"],
             fg=THEME["text_sub"],
             font=FONTS["label"],
-        ).pack(anchor="w", pady=(0, 15))
+        ).pack(anchor="w", pady=(0, 10))
 
-        grid = tk.Frame(inner2, bg=THEME["panel"])
-        grid.pack(fill="x")
-
-        self.combo_folder = self.make_combo(grid, 0, 0, "Folder Name Column")
-        self.combo_file = self.make_combo(grid, 0, 1, "Current Filename Column")
-        self.combo_eng = self.make_combo(grid, 1, 0, "English Name Column")
-        self.combo_isrc = self.make_combo(grid, 1, 1, "ISRC Column")
+        g = tk.Frame(inner2, bg=THEME["panel"])
+        g.pack(fill="x")
+        self.combo_folder = self.make_combo(g, 0, 0, "Folder Column")
+        self.combo_file = self.make_combo(g, 0, 1, "Filename Column")
+        self.combo_eng = self.make_combo(g, 1, 0, "New Name Column")
+        self.combo_isrc = self.make_combo(g, 1, 1, "ISRC Column")
 
         # Options
-        opts_frame = tk.Frame(inner2, bg=THEME["panel"])
-        opts_frame.pack(fill="x", pady=20)
+        opt = tk.Frame(inner2, bg=THEME["panel"])
+        opt.pack(fill="x", pady=20)
+        self.make_chk(opt, "Smart ISRC (Ask if missing)", self.var_enable_isrc)
+        self.make_chk(opt, "Strict Case Match", self.var_strict_case)
 
-        # ISRC Toggle
-        tk.Checkbutton(
-            opts_frame,
-            text=" Smart ISRC (Ask popup if missing)",
-            variable=self.var_enable_isrc,
-            bg=THEME["panel"],
-            fg="white",
-            selectcolor=THEME["bg"],
-            activebackground=THEME["panel"],
-            activeforeground="white",
-            font=FONTS["body"],
-        ).pack(side="left", padx=(0, 20))
-
-        # Case Sensitive Toggle
-        tk.Checkbutton(
-            opts_frame,
-            text=" Strict Case Match (File must match Excel exactly)",
-            variable=self.var_case_sensitive,
-            bg=THEME["panel"],
-            fg="white",
-            selectcolor=THEME["bg"],
-            activebackground=THEME["panel"],
-            activeforeground="white",
-            font=FONTS["body"],
-        ).pack(side="left")
-
-        # Action & Log
-        action_bar = tk.Frame(self.workspace, bg=THEME["bg"])
-        action_bar.pack(fill="x", pady=0)
-
+        # Action
+        act = tk.Frame(self.workspace, bg=THEME["bg"])
+        act.pack(fill="x")
         RoundedButton(
-            action_bar, "RUN RENAME", self.run_excel, width=180, bg=THEME["success"]
+            act, "RUN RENAME", self.run_excel, width=180, bg=THEME["success"]
         ).pack(side="left")
 
+        # Log
         self.log_area = scrolledtext.ScrolledText(
             self.workspace,
-            height=6,
+            height=10,
             bg=THEME["input_bg"],
             fg=THEME["accent"],
             bd=0,
@@ -421,44 +372,41 @@ class UltimateRenamerApp:
         )
         self.log_area.pack(fill="both", pady=20)
 
-    # ================= VIEW: UTILITY =================
+    # --- VIEW: UTILITY ---
     def show_util_view(self):
-        self.clear_workspace()
-        self.switch_tab(lambda: None, self.btn_util["btn"], self.btn_util["ind"])
-        self.header.config(text="Quick Tools")
+        self.clear_view()
+        self.switch_view(lambda: None, self.btn_util["btn"], self.btn_util["ind"])
+        self.header.config(text="Quick Utility (Manual Override)")
 
-        # Config Panel
-        panel = RoundedFrame(self.workspace, width=900, height=350)
+        # Config
+        panel = RoundedFrame(self.workspace, width=900, height=400)
         panel.pack(anchor="w")
         inner = panel.inner
 
         tk.Label(
             inner,
-            text="TARGET & RULES",
+            text="BULK RULES",
             bg=THEME["panel"],
             fg=THEME["text_sub"],
             font=FONTS["label"],
         ).pack(anchor="w", pady=(0, 10))
-        self.make_file_picker(
+        self.make_file_input(
             inner,
             "Target Folder:",
             self.util_folder_path,
             lambda: [self.browse(self.util_folder_path), self.update_preview()],
         )
 
-        # Rules Grid
         g = tk.Frame(inner, bg=THEME["panel"])
         g.pack(fill="x", pady=20)
+        self.make_entry_row(g, 0, 0, "Find:", self.util_find)
+        self.make_entry_row(g, 0, 1, "Replace:", self.util_replace)
+        self.make_entry_row(g, 1, 0, "Prefix:", self.util_prefix)
+        self.make_entry_row(g, 1, 1, "Suffix:", self.util_suffix)
 
-        self.make_input_grid(g, 0, 0, "Find:", self.util_find)
-        self.make_input_grid(g, 0, 1, "Replace:", self.util_replace)
-        self.make_input_grid(g, 1, 0, "Prefix:", self.util_prefix)
-        self.make_input_grid(g, 1, 1, "Suffix:", self.util_suffix)
-
-        # Options
         opt = tk.Frame(inner, bg=THEME["panel"])
-        opt.pack(fill="x")
-        tk.Label(opt, text="Casing:", bg=THEME["panel"], fg=THEME["text_sub"]).pack(
+        opt.pack(fill="x", pady=10)
+        tk.Label(opt, text="Casing:", bg=THEME["panel"], fg=THEME["text_main"]).pack(
             side="left"
         )
         cb = ttk.Combobox(
@@ -470,59 +418,55 @@ class UltimateRenamerApp:
         cb.pack(side="left", padx=10)
         cb.bind("<<ComboboxSelected>>", self.update_preview)
 
-        tk.Checkbutton(
-            opt,
-            text=" Add Numbering",
-            variable=self.util_num_enable,
-            command=self.update_preview,
-            bg=THEME["panel"],
-            fg="white",
-            selectcolor=THEME["bg"],
-            activebackground=THEME["panel"],
-        ).pack(side="left", padx=20)
+        self.make_chk(opt, "Auto Numbering", self.util_num_enable, self.update_preview)
 
         # Preview
         tk.Label(
             self.workspace,
-            text="PREVIEW",
+            text="PREVIEW (Double-Click file to Edit Manually)",
             bg=THEME["bg"],
             fg=THEME["text_sub"],
             font=FONTS["label"],
         ).pack(anchor="w", pady=(20, 5))
+
         self.tree = ttk.Treeview(
             self.workspace, columns=("O", "N", "S"), show="headings", height=8
         )
-        self.tree.heading("O", text="Original")
+        self.tree.heading("O", text="Original Name")
         self.tree.column("O", width=300)
-        self.tree.heading("N", text="New Name")
+        self.tree.heading("N", text="New Name (Editable)")
         self.tree.column("N", width=300)
         self.tree.heading("S", text="Status")
         self.tree.column("S", width=100)
         self.tree.pack(fill="both", expand=True)
+        self.tree.bind("<Double-1>", self.on_tree_double_click)  # BIND CLICK
 
         RoundedButton(self.workspace, "APPLY CHANGES", self.run_util, width=200).pack(
             pady=20
         )
 
-    # ================= WIDGET BUILDERS =================
-    def make_file_picker(self, parent, label, var, cmd):
+    # --- HELPERS ---
+    def make_file_input(self, parent, label, var, cmd):
         f = tk.Frame(parent, bg=THEME["panel"])
         f.pack(fill="x")
         tk.Label(
-            f, text=label, bg=THEME["panel"], fg="white", width=15, anchor="w"
+            f,
+            text=label,
+            bg=THEME["panel"],
+            fg=THEME["text_main"],
+            width=15,
+            anchor="w",
         ).pack(side="left")
-
-        e = RoundedEntry(f, width=500, height=35)
+        e = RoundedEntry(f, width=500)
         e.set_var(var)
         e.pack(side="left", padx=10)
-
         RoundedButton(
             f, "📂", cmd, width=40, height=35, bg=THEME["input_bg"], fg=THEME["accent"]
         ).pack(side="left")
 
     def make_combo(self, parent, r, c, label):
         f = tk.Frame(parent, bg=THEME["panel"])
-        f.grid(row=r, column=c, padx=15, pady=10, sticky="ew")
+        f.grid(row=r, column=c, padx=20, pady=10, sticky="ew")
         tk.Label(f, text=label, bg=THEME["panel"], fg=THEME["text_sub"]).pack(
             anchor="w"
         )
@@ -530,18 +474,31 @@ class UltimateRenamerApp:
         cb.pack(fill="x", pady=5)
         return cb
 
-    def make_input_grid(self, parent, r, c, label, var):
+    def make_entry_row(self, parent, r, c, label, var):
         f = tk.Frame(parent, bg=THEME["panel"])
-        f.grid(row=r, column=c, padx=10, pady=5, sticky="w")
+        f.grid(row=r, column=c, padx=15, pady=5, sticky="w")
         tk.Label(f, text=label, bg=THEME["panel"], fg=THEME["text_sub"]).pack(
             side="left"
         )
-        e = RoundedEntry(f, width=200, height=30)
+        e = RoundedEntry(f, width=180, height=30)
         e.set_var(var)
         e.entry.bind("<KeyRelease>", self.update_preview)
         e.pack(side="left", padx=10)
 
-    # ================= LOGIC =================
+    def make_chk(self, parent, text, var, cmd=None):
+        c = tk.Checkbutton(
+            parent,
+            text=text,
+            variable=var,
+            command=cmd,
+            bg=THEME["panel"],
+            fg="white",
+            selectcolor=THEME["bg"],
+            activebackground=THEME["panel"],
+        )
+        c.pack(side="left", padx=15)
+
+    # --- LOGIC ---
     def log(self, msg):
         self.log_area.config(state="normal")
         self.log_area.insert(tk.END, f"> {msg}\n")
@@ -555,146 +512,130 @@ class UltimateRenamerApp:
             var.set(f)
 
     def load_excel_preview(self):
-        f = filedialog.askopenfilename(filetypes=[("Excel", "*.xlsx *.xls *.csv")])
+        f = filedialog.askopenfilename()
         if not f:
             return
         self.excel_path.set(f)
         try:
+            hr = self.var_header_row.get() - 1
+            if hr < 0:
+                hr = 0
             self.df = (
-                pd.read_csv(f, header=1)
+                pd.read_csv(f, header=hr)
                 if f.endswith(".csv")
-                else pd.read_excel(f, header=1)
+                else pd.read_excel(f, header=hr)
             )
-            # Fallback
-            if "Folder Name" not in self.df.columns:
-                self.df = (
-                    pd.read_csv(f, header=0)
-                    if f.endswith(".csv")
-                    else pd.read_excel(f, header=0)
-                )
 
             cols = ["-- Select --"] + list(self.df.columns)
-            for cb in [
+            for c in [
                 self.combo_folder,
                 self.combo_file,
                 self.combo_eng,
                 self.combo_isrc,
             ]:
-                cb["values"] = cols
-                cb.current(0)
-
-            self.safe_select(self.combo_folder, "Folder Name")
-            self.safe_select(self.combo_file, "File Name")
-            self.safe_select(self.combo_eng, "English Track Name")
-
-            isrcs = [c for c in self.df.columns if "ISRC" in c.upper()]
-            if isrcs:
-                self.safe_select(self.combo_isrc, isrcs[0])
+                c["values"] = cols
+                c.current(0)
 
             self.log(f"Loaded {len(self.df)} rows.")
         except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def safe_select(self, cb, val):
-        if val in cb["values"]:
-            cb.set(val)
+            messagebox.showerror("Err", str(e))
 
     def run_excel(self):
         root = self.root_folder_path.get()
         if self.df is None:
-            return messagebox.showerror("Err", "Load Excel first")
+            return messagebox.showerror("Error", "Load Excel first")
 
-        c_fold, c_file = self.combo_folder.get(), self.combo_file.get()
-        c_eng, c_isrc = self.combo_eng.get(), self.combo_isrc.get()
-        use_isrc = self.var_enable_isrc.get()
-        strict_case = self.var_case_sensitive.get()
+        c_fol, c_fil = self.combo_folder.get(), self.combo_file.get()
+        c_new, c_isrc = self.combo_eng.get(), self.combo_isrc.get()
+        strict = self.var_strict_case.get()
 
-        self.log("Starting batch process...")
-        self.folder_isrc_cache = {}
+        self.log("Starting...")
         count = 0
 
         for i, row in self.df.iterrows():
             try:
-                folder = str(row[c_fold]).strip()
-                fname = str(row[c_file]).strip()
-                eng = str(row[c_eng]).strip()
-                if folder == "nan" or fname == "nan":
+                fol = str(row[c_fol]).strip()
+                fil = str(row[c_fil]).strip()
+                eng = str(row[c_new]).strip()
+                if fol == "nan" or fil == "nan":
                     continue
 
-                name, ext = os.path.splitext(fname)
+                name, ext = os.path.splitext(fil)
                 if not ext:
                     ext = ".wav"
-                target_file = name + ext
+                target = name + ext
 
-                # --- FILE FINDING LOGIC ---
-                found_path = None
-                parent_dir = None
-
-                # Search paths: [Root/Folder, Root]
-                search_dirs = []
-                # Always check inner folder if specified
-                inner = os.path.join(root, folder)
-                if os.path.exists(inner):
-                    search_dirs.append(inner)
-                search_dirs.append(root)
-
-                for d in search_dirs:
-                    if not os.path.exists(d):
+                # Search
+                found_p, parent = None, None
+                paths = [os.path.join(root, fol), root]
+                for p in paths:
+                    if not os.path.exists(p):
                         continue
-
-                    # Case-Sensitivity Handler
-                    if strict_case:
-                        # Exact match required
-                        if os.path.exists(os.path.join(d, target_file)):
-                            # Double check because Windows os.path.exists is loose
-                            if target_file in os.listdir(d):
-                                found_path = os.path.join(d, target_file)
-                                parent_dir = d
-                                break
+                    if strict:
+                        if target in os.listdir(p):
+                            found_p, parent = os.path.join(p, target), p
+                            break
                     else:
-                        # Loose match
-                        if os.path.exists(os.path.join(d, target_file)):
-                            found_path = os.path.join(d, target_file)
-                            parent_dir = d
+                        cand = os.path.join(p, target)
+                        if os.path.exists(cand):
+                            found_p, parent = cand, p
                             break
 
-                if not found_path:
+                if not found_p:
                     continue
 
-                # ISRC
+                # ISRC (Ask Every Time)
                 isrc = ""
-                if use_isrc:
+                if self.var_enable_isrc.get():
                     if c_isrc != "-- Select --" and pd.notna(row[c_isrc]):
                         isrc = str(row[c_isrc]).strip()
                     if not isrc:
-                        if folder in self.folder_isrc_cache:
-                            isrc = self.folder_isrc_cache[folder]
-                        else:
-                            val = simpledialog.askstring(
-                                "ISRC", f"Enter ISRC for {folder}"
-                            )
-                            isrc = val.strip() if val else ""
-                            self.folder_isrc_cache[folder] = isrc
+                        val = simpledialog.askstring(
+                            "ISRC Needed", f"Enter ISRC for:\n{target}"
+                        )
+                        isrc = val.strip() if val else ""
 
                 base = f"_{name}" if (eng == "nan" or not eng) else eng
-                new_name = f"{base}_{isrc}{ext}" if isrc else f"{base}{ext}"
+                final = f"{base}_{isrc}{ext}" if isrc else f"{base}{ext}"
 
-                new_full = os.path.join(parent_dir, new_name)
-
-                if found_path != new_full:
-                    # Windows Case Fix logic
-                    if found_path.lower() == new_full.lower():
-                        os.rename(found_path, found_path + "_tmp")
-                        os.rename(found_path + "_tmp", new_full)
+                new_full = os.path.join(parent, final)
+                if found_p != new_full:
+                    if found_p.lower() == new_full.lower():
+                        os.rename(found_p, found_p + "_tmp")
+                        os.rename(found_p + "_tmp", new_full)
                     else:
-                        os.rename(found_path, new_full)
-                    self.log(f"Renamed: {target_file} -> {new_name}")
+                        os.rename(found_p, new_full)
+                    self.log(f"Renamed: {target} -> {final}")
                     count += 1
             except Exception as e:
-                self.log(f"Err row {i}: {e}")
-        messagebox.showinfo("Done", f"Processed {count} files.")
+                self.log(f"Err {i}: {e}")
+        messagebox.showinfo("Done", f"Processed {count}")
+
+    # --- MANUAL EDIT FEATURE ---
+    def on_tree_double_click(self, event):
+        item_id = self.tree.identify_row(event.y)
+        if not item_id:
+            return
+
+        vals = self.tree.item(item_id, "values")
+        orig_name = vals[0]
+        curr_new = vals[1]
+
+        # Ask user for manual override
+        manual = simpledialog.askstring(
+            "Manual Edit",
+            f"Edit Name for:\n{orig_name}",
+            initialvalue=curr_new,
+            parent=self.root,
+        )
+
+        if manual:
+            self.manual_overrides[orig_name] = manual
+            # Update visual immediately
+            self.tree.item(item_id, values=(orig_name, manual, "Manual"))
 
     def update_preview(self, e=None):
+        # Clear tree
         for i in self.tree.get_children():
             self.tree.delete(i)
         f = self.util_folder_path.get()
@@ -702,29 +643,38 @@ class UltimateRenamerApp:
             return
 
         files = sorted([x for x in os.listdir(f) if os.path.isfile(os.path.join(f, x))])
+
+        # Bulk settings
         find, rep = self.util_find.get(), self.util_replace.get()
         pre, suf = self.util_prefix.get(), self.util_suffix.get()
         case, num = self.util_case.get(), self.util_num_enable.get()
         ctr = self.util_num_start.get()
 
         for name in files:
-            r, ext = os.path.splitext(name)
-            new_r = r.replace(find, rep) if find else r
-            if case == "UPPERCASE":
-                new_r = new_r.upper()
-            elif case == "lowercase":
-                new_r = new_r.lower()
-            elif case == "Title Case":
-                new_r = new_r.title()
+            # CHECK MANUAL OVERRIDE FIRST
+            if name in self.manual_overrides:
+                final = self.manual_overrides[name]
+                status = "Manual"
+            else:
+                # Apply Bulk Logic
+                r, ext = os.path.splitext(name)
+                new_r = r.replace(find, rep) if find else r
+                if case == "UPPERCASE":
+                    new_r = new_r.upper()
+                elif case == "lowercase":
+                    new_r = new_r.lower()
+                elif case == "Title Case":
+                    new_r = new_r.title()
 
-            new_r = f"{pre}{new_r}{suf}"
-            if num:
-                new_r += f"_{str(ctr).zfill(3)}"
-                ctr += 1
+                new_r = f"{pre}{new_r}{suf}"
+                if num:
+                    new_r += f"_{str(ctr).zfill(3)}"
+                    ctr += 1
 
-            final = new_r + ext
-            stat = "Ready" if final != name else "No Change"
-            self.tree.insert("", "end", values=(name, final, stat))
+                final = new_r + ext
+                status = "Ready" if final != name else "No Change"
+
+            self.tree.insert("", "end", values=(name, final, status))
 
     def run_util(self):
         f = self.util_folder_path.get()
@@ -733,12 +683,15 @@ class UltimateRenamerApp:
         c = 0
         for item in self.tree.get_children():
             v = self.tree.item(item)["values"]
-            if v[2] == "Ready":
+            if v[2] in ["Ready", "Manual"]:
                 try:
                     os.rename(os.path.join(f, v[0]), os.path.join(f, v[1]))
                     c += 1
                 except:
                     pass
+
+        # Clear manual overrides after run
+        self.manual_overrides = {}
         self.update_preview()
         messagebox.showinfo("Success", f"Renamed {c} files.")
 
