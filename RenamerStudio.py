@@ -1,605 +1,499 @@
 import os
 import sys
 import tkinter as tk
-from tkinter import filedialog, messagebox, scrolledtext, ttk, simpledialog
+from tkinter import filedialog, messagebox, simpledialog, ttk
+import customtkinter as ctk  # pip install customtkinter pandas openpyxl
 import pandas as pd
 
-# --- MATERIAL 3 DESIGN SYSTEM (Dark) ---
+# --- THEME CONFIGURATION ---
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("dark-blue")
+
+# High Contrast Palette
 THEME = {
-    "bg": "#131314",  # Main Background
+    "bg": "#131314",  # Deep Background
     "surface": "#1E1F20",  # Card Surface
-    "surface_container": "#28292A",  # Input Field Background
-    "primary": "#D3E3FD",  # Soft Blue (Active Buttons)
-    "on_primary": "#041E49",  # Text on Primary Buttons
-    "secondary": "#C4C7C5",  # Muted Text / Inactive Icons
-    "text_main": "#E3E3E3",  # Main Body Text
-    "text_sub": "#444746",  # Borders / Dividers
-    "outline": "#8E918F",  # Input Borders
-    "success": "#6DD58C",  # Success Green
-    "error": "#F2B8B5",  # Error Red
+    "surface_hover": "#2D2E30",  # Input Fields (Dark)
+    "primary": "#A8C7FA",  # Light Blue (Buttons)
+    "on_primary": "#000000",  # Black Text on Blue (High Contrast)
+    "text_main": "#FFFFFF",  # Pure White Text
+    "text_dim": "#E3E3E3",  # Light Grey
+    "outline": "#8E918F",  # Borders
 }
 
-# Matching Google Sans Weights using Segoe UI
+# BIGGER FONTS (Readability Focused)
 FONTS = {
-    "display": ("Segoe UI", 28, "bold"),
-    "headline": ("Segoe UI", 20, "bold"),
-    "title": ("Segoe UI", 14, "bold"),
-    "body": ("Segoe UI", 11),
-    "label": ("Segoe UI", 10, "bold"),
-    "mono": ("Consolas", 10),
+    "display": ("Poppins", 30, "bold"),
+    "header": ("Poppins", 22, "bold"),
+    "sub": ("Poppins", 16, "bold"),
+    "body": ("Open Sans", 14),
+    "label": ("Open Sans", 13, "bold"),
+    "mono": ("Consolas", 13),
 }
 
-
-# --- GRAPHICS ENGINE ---
-def draw_stadium(canvas, x, y, w, h, color):
-    """Draws a 'Stadium' shape (Full rounded sides)"""
-    r = h / 2
-    return draw_rounded_rect(canvas, x, y, w, h, r, color)
+RADIUS = 10
 
 
-def draw_rounded_rect(canvas, x, y, w, h, r, color):
-    """Draws a standard rounded rectangle"""
-    pts = [
-        x + r,
-        y,
-        x + w - r,
-        y,
-        x + w,
-        y,
-        x + w,
-        y + r,
-        x + w,
-        y + h - r,
-        x + w,
-        y + h,
-        x + w - r,
-        y + h,
-        x + r,
-        y + h,
-        x,
-        y + h,
-        x,
-        y + h - r,
-        x,
-        y + r,
-        x,
-        y,
-        x + r,
-        y,
-    ]
-    return canvas.create_polygon(pts, smooth=True, fill=color, outline="")
+class RenamerApp(ctk.CTk):
+    def __init__(self):
+        super().__init__()
 
+        # Window Setup
+        self.title("Renamer Studio Pro")
+        self.geometry("1450x1000")
+        self.configure(fg_color=THEME["bg"])
 
-class SurfaceCard(tk.Canvas):
-    """A Material 3 Card container"""
-
-    def __init__(self, master, width, height, radius=24):
-        super().__init__(
-            master, width=width, height=height, bg=THEME["bg"], highlightthickness=0
-        )
-        self.bg_color = THEME["surface"]
-
-        # Draw Card
-        self.shape = draw_rounded_rect(self, 0, 0, width, height, radius, self.bg_color)
-
-        # Inner container
-        self.inner = tk.Frame(self, bg=self.bg_color)
-        self.create_window(
-            width / 2,
-            height / 2,
-            window=self.inner,
-            width=width - 40,
-            height=height - 40,
-        )
-
-
-class ActionButton(tk.Canvas):
-    """A 'Filled' Material 3 Button"""
-
-    def __init__(
-        self,
-        master,
-        text,
-        command,
-        width=140,
-        height=45,
-        bg=THEME["primary"],
-        fg=THEME["on_primary"],
-    ):
-        super().__init__(
-            master,
-            width=width,
-            height=height,
-            bg=master["bg"] if "bg" in master.keys() else THEME["bg"],
-            highlightthickness=0,
-        )
-        self.command = command
-        self.bg_normal = bg
-        self.bg_hover = "#E8F0FE"  # Lighter on hover
-
-        # Stadium Shape
-        self.shape = draw_stadium(self, 2, 2, width - 2, height - 2, self.bg_normal)
-        self.text = self.create_text(
-            width / 2, height / 2, text=text, fill=fg, font=("Segoe UI", 11, "bold")
-        )
-
-        self.bind("<Enter>", lambda e: self.itemconfig(self.shape, fill=self.bg_hover))
-        self.bind("<Leave>", lambda e: self.itemconfig(self.shape, fill=self.bg_normal))
-        self.bind("<Button-1>", lambda e: command() if command else None)
-
-
-class InputField(tk.Canvas):
-    """A Material 3 Input Field"""
-
-    def __init__(self, master, width=200, height=40):
-        super().__init__(
-            master,
-            width=width,
-            height=height,
-            bg=THEME["surface"],
-            highlightthickness=0,
-        )
-
-        # Background
-        draw_rounded_rect(
-            self, 2, 2, width - 2, height - 2, 12, THEME["surface_container"]
-        )
-
-        self.entry = tk.Entry(
-            self,
-            bg=THEME["surface_container"],
-            fg=THEME["text_main"],
-            insertbackground=THEME["primary"],
-            relief="flat",
-            font=FONTS["body"],
-        )
-        self.create_window(width / 2, height / 2, window=self.entry, width=width - 30)
-
-    def get(self):
-        return self.entry.get()
-
-    def insert(self, idx, s):
-        self.entry.insert(idx, s)
-
-    def delete(self, first, last):
-        self.entry.delete(first, last)
-
-    def set_var(self, text_var):
-        self.entry.config(textvariable=text_var)
-
-    def bind_key(self, func):
-        self.entry.bind("<KeyRelease>", func)
-
-
-# --- APP LOGIC ---
-
-
-class UltimateRenamerApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Renamer Studio")
-        self.root.geometry("1400x950")
-        self.root.configure(bg=THEME["bg"])
-
-        # Data & State
+        # Data
         self.df = None
         self.manual_overrides = {}
 
         # Vars
-        self.excel_path = tk.StringVar()
-        self.root_folder_path = tk.StringVar()
-        self.var_enable_isrc = tk.BooleanVar(value=True)
-        self.var_strict_case = tk.BooleanVar(value=False)
-        self.var_header_row = tk.IntVar(value=2)
+        self.excel_path = ctk.StringVar()
+        self.root_folder_path = ctk.StringVar()
+        self.util_folder_path = ctk.StringVar()
 
-        self.util_folder_path = tk.StringVar()
-        self.util_find = tk.StringVar()
-        self.util_replace = tk.StringVar()
-        self.util_prefix = tk.StringVar()
-        self.util_suffix = tk.StringVar()
-        self.util_case = tk.StringVar(value="No Change")
-        self.util_num_enable = tk.BooleanVar(value=False)
-        self.util_num_start = tk.IntVar(value=1)
+        self.var_header_row = ctk.IntVar(value=2)
+        self.var_enable_isrc = ctk.BooleanVar(value=True)
+        self.var_strict_case = ctk.BooleanVar(value=False)
 
-        self.style_widgets()
-        self.build_ui()
+        self.util_find = ctk.StringVar()
+        self.util_replace = ctk.StringVar()
+        self.util_prefix = ctk.StringVar()
+        self.util_suffix = ctk.StringVar()
+        self.util_case = ctk.StringVar(value="No Change")
+        self.util_num_enable = ctk.BooleanVar(value=False)
+
+        # Layout
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+
+        self.style_treeview()
+        self.setup_sidebar()
+        self.setup_main_area()
         self.show_excel_view()
 
-    def style_widgets(self):
+    def style_treeview(self):
         style = ttk.Style()
-        try:
-            style.theme_use("clam")
-        except:
-            pass
+        style.theme_use("clam")
 
-        # Combobox
-        style.configure(
-            "TCombobox",
-            fieldbackground=THEME["surface_container"],
-            background=THEME["surface"],
-            foreground="white",
-            arrowcolor=THEME["primary"],
-            borderwidth=0,
-        )
-        style.map(
-            "TCombobox", fieldbackground=[("readonly", THEME["surface_container"])]
-        )
-
-        # Treeview
+        # Bigger Text in Table
         style.configure(
             "Treeview",
-            background=THEME["surface_container"],
+            background=THEME["surface"],
             foreground=THEME["text_main"],
-            fieldbackground=THEME["surface_container"],
+            fieldbackground=THEME["surface"],
             borderwidth=0,
-            rowheight=45,
-            font=FONTS["body"],
+            rowheight=40,
+            font=("Open Sans", 13),
         )
         style.configure(
             "Treeview.Heading",
-            background=THEME["surface"],
+            background=THEME["surface_hover"],
             foreground=THEME["primary"],
-            font=FONTS["label"],
+            font=("Poppins", 13, "bold"),
             relief="flat",
         )
         style.map(
             "Treeview",
-            background=[("selected", "#3C4043")],
-            foreground=[("selected", THEME["primary"])],
+            background=[("selected", THEME["primary"])],
+            foreground=[("selected", "black")],  # Black text on selection
         )
 
-    def build_ui(self):
-        # 1. Sidebar
-        self.sidebar = tk.Frame(self.root, bg=THEME["bg"], width=280)
-        self.sidebar.pack(side="left", fill="y")
-        self.sidebar.pack_propagate(False)
+    def setup_sidebar(self):
+        self.sidebar = ctk.CTkFrame(
+            self, width=280, corner_radius=0, fg_color=THEME["bg"]
+        )
+        self.sidebar.grid(row=0, column=0, sticky="nsew")
+        self.sidebar.grid_rowconfigure(4, weight=1)
 
         # Branding
-        tk.Label(
+        ctk.CTkLabel(
             self.sidebar,
             text="Renamer",
-            bg=THEME["bg"],
-            fg=THEME["text_main"],
             font=FONTS["display"],
-        ).pack(anchor="w", padx=30, pady=(50, 0))
-        tk.Label(
+            text_color=THEME["text_main"],
+        ).grid(row=0, column=0, padx=25, pady=(50, 0), sticky="w")
+        ctk.CTkLabel(
             self.sidebar,
             text="STUDIO PRO",
-            bg=THEME["bg"],
-            fg=THEME["primary"],
-            font=FONTS["label"],
-        ).pack(anchor="w", padx=32)
+            font=("Poppins", 12, "bold"),
+            text_color=THEME["primary"],
+        ).grid(row=1, column=0, padx=27, pady=(0, 50), sticky="w")
 
-        self.nav_frame = tk.Frame(self.sidebar, bg=THEME["bg"])
-        self.nav_frame.pack(fill="x", pady=60)
+        # Nav Buttons
+        self.btn_excel = self.create_nav_btn("📊 Smart Rename", self.show_excel_view, 2)
+        self.btn_util = self.create_nav_btn("🛠 Quick Utility", self.show_util_view, 3)
 
-        self.btn_excel = self.create_nav("Smart Rename", self.show_excel_view)
-        self.btn_util = self.create_nav("Quick Utility", self.show_util_view)
-
-        # 2. Main Content
-        self.main = tk.Frame(self.root, bg=THEME["bg"])
-        self.main.pack(side="left", fill="both", expand=True, padx=40, pady=40)
-
-        self.header = tk.Label(
-            self.main,
-            text="Overview",
-            bg=THEME["bg"],
-            fg=THEME["text_main"],
-            font=FONTS["headline"],
-        )
-        self.header.pack(anchor="w", pady=(0, 30))
-
-        self.workspace = tk.Frame(self.main, bg=THEME["bg"])
-        self.workspace.pack(fill="both", expand=True)
-
-    def create_nav(self, text, cmd):
-        f = tk.Frame(self.nav_frame, bg=THEME["bg"], pady=8)
-        f.pack(fill="x")
-
-        # Rounded Indicator (Pill)
-        ind = tk.Frame(f, width=6, height=35, bg=THEME["bg"])
-        ind.pack(side="left")
-
-        b = tk.Button(
-            f,
-            text=f"  {text}",
-            command=lambda: self.switch_view(cmd, b, ind),
-            bg=THEME["bg"],
-            fg=THEME["secondary"],
-            font=FONTS["body"],
-            bd=0,
-            activebackground=THEME["bg"],
-            activeforeground=THEME["primary"],
+    def create_nav_btn(self, text, command, row):
+        btn = ctk.CTkButton(
+            self.sidebar,
+            text=text,
+            command=command,
+            fg_color="transparent",
+            text_color=THEME["text_dim"],
+            hover_color=THEME["surface"],
             anchor="w",
+            height=55,
+            font=FONTS["sub"],
+            corner_radius=RADIUS,
         )
-        b.pack(side="left", fill="x", padx=15)
-        return {"btn": b, "ind": ind}
+        btn.grid(row=row, column=0, padx=15, pady=8, sticky="ew")
+        return btn
 
-    def switch_view(self, cmd, b, ind):
-        for item in [self.btn_excel, self.btn_util]:
-            item["ind"].config(bg=THEME["bg"])
-            item["btn"].config(fg=THEME["secondary"], font=("Segoe UI", 11))
+    def setup_main_area(self):
+        self.main_frame = ctk.CTkFrame(self, corner_radius=0, fg_color=THEME["bg"])
+        self.main_frame.grid(row=0, column=1, sticky="nsew", padx=0, pady=0)
+        self.main_frame.grid_columnconfigure(0, weight=1)
+        self.main_frame.grid_rowconfigure(1, weight=1)
 
-        # Active State
-        ind.config(bg=THEME["primary"])
-        b.config(fg=THEME["text_main"], font=("Segoe UI", 11, "bold"))
-        cmd()
+        self.header_label = ctk.CTkLabel(
+            self.main_frame,
+            text="Overview",
+            font=FONTS["header"],
+            text_color=THEME["text_main"],
+        )
+        self.header_label.grid(row=0, column=0, sticky="w", padx=40, pady=(40, 20))
 
-    def clear_ws(self):
-        for w in self.workspace.winfo_children():
-            w.destroy()
+        self.content = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        self.content.grid(row=1, column=0, sticky="nsew", padx=20)
 
-    # --- EXCEL VIEW ---
+    def set_active_nav(self, active_btn):
+        self.btn_excel.configure(fg_color="transparent", text_color=THEME["text_dim"])
+        self.btn_util.configure(fg_color="transparent", text_color=THEME["text_dim"])
+        active_btn.configure(fg_color=THEME["surface"], text_color=THEME["primary"])
+
+    def clear_content(self):
+        for widget in self.content.winfo_children():
+            widget.destroy()
+
+    # ================= EXCEL VIEW =================
     def show_excel_view(self):
-        self.clear_ws()
-        self.switch_view(lambda: None, self.btn_excel["btn"], self.btn_excel["ind"])
-        self.header.config(text="Smart Renaming")
+        self.set_active_nav(self.btn_excel)
+        self.clear_content()
+        self.header_label.configure(text="Smart Renaming")
 
-        # Config Card
-        card = SurfaceCard(self.workspace, width=950, height=220)
-        card.pack(anchor="w", pady=(0, 20))
-        inner = card.inner
+        # 1. Config Card
+        card_conf = self.create_card("Source Configuration")
 
-        tk.Label(
-            inner,
-            text="SOURCE CONFIGURATION",
-            bg=THEME["surface"],
-            fg=THEME["primary"],
+        # Header Row Logic (Reload button removed, just input)
+        row_h = ctk.CTkFrame(card_conf, fg_color="transparent")
+        row_h.pack(fill="x", pady=(0, 15))
+
+        ctk.CTkLabel(
+            row_h,
+            text="Header Row:",
+            text_color=THEME["text_main"],
             font=FONTS["label"],
-        ).pack(anchor="w", pady=(0, 15))
+        ).pack(side="left", padx=(0, 10))
 
-        # Header Row
-        h_row = tk.Frame(inner, bg=THEME["surface"])
-        h_row.pack(anchor="w", pady=(0, 10))
-        tk.Label(
-            h_row,
-            text="Header Row Number:",
-            bg=THEME["surface"],
-            fg=THEME["text_main"],
-            font=FONTS["body"],
-        ).pack(side="left")
-        tk.Spinbox(
-            h_row,
-            from_=1,
-            to=10,
+        # High Contrast Entry
+        ctk.CTkEntry(
+            row_h,
             textvariable=self.var_header_row,
-            width=3,
-            font=FONTS["body"],
-            bg=THEME["surface_container"],
-            fg="white",
-            buttonbackground=THEME["surface_container"],
+            width=60,
+            font=FONTS["mono"],
+            fg_color=THEME["surface_hover"],
+            text_color="white",
+            border_width=1,
+            border_color=THEME["outline"],
+        ).pack(side="left")
+        ctk.CTkLabel(
+            row_h,
+            text="(Set this before browsing file)",
+            text_color=THEME["text_dim"],
+            font=("Open Sans", 12),
         ).pack(side="left", padx=10)
 
-        self.make_file_row(
-            inner, "Excel File:", self.excel_path, self.load_excel_preview
+        # File Inputs (Re-browsing here will trigger reload)
+        self.create_file_row(
+            card_conf, "Excel Database:", self.excel_path, self.browse_excel
         )
-        tk.Frame(inner, height=10, bg=THEME["surface"]).pack()
-        self.make_file_row(
-            inner,
+        self.create_file_row(
+            card_conf,
             "Music Folder:",
             self.root_folder_path,
             lambda: self.browse(self.root_folder_path),
         )
 
-        # Mapping Card
-        card2 = SurfaceCard(self.workspace, width=950, height=320)
-        card2.pack(anchor="w", pady=10)
-        i2 = card2.inner
+        # 2. Mapping Card
+        card_map = self.create_card("Column Mapping")
 
-        tk.Label(
-            i2,
-            text="DATA MAPPING",
-            bg=THEME["surface"],
-            fg=THEME["primary"],
-            font=FONTS["label"],
-        ).pack(anchor="w", pady=(0, 15))
+        grid_map = ctk.CTkFrame(card_map, fg_color="transparent")
+        grid_map.pack(fill="x", pady=10)
+        grid_map.grid_columnconfigure((0, 1), weight=1)
 
-        g = tk.Frame(i2, bg=THEME["surface"])
-        g.pack(fill="x")
-        self.combo_folder = self.make_combo(g, 0, 0, "Folder Column")
-        self.combo_file = self.make_combo(g, 0, 1, "Filename Column")
-        self.combo_eng = self.make_combo(g, 1, 0, "New Name Column")
-        self.combo_isrc = self.make_combo(g, 1, 1, "ISRC Column")
+        self.combo_folder = self.create_combo(grid_map, "Folder Name Column", 0, 0)
+        self.combo_file = self.create_combo(grid_map, "Current Filename Column", 0, 1)
+        self.combo_eng = self.create_combo(grid_map, "New Track Name Column", 1, 0)
+        self.combo_isrc = self.create_combo(grid_map, "ISRC Column", 1, 1)
 
-        # Toggles
-        opts = tk.Frame(i2, bg=THEME["surface"])
-        opts.pack(fill="x", pady=25)
-        self.make_check(opts, "Smart ISRC (Ask if missing)", self.var_enable_isrc)
-        self.make_check(opts, "Strict Case Match", self.var_strict_case)
+        row_tog = ctk.CTkFrame(card_map, fg_color="transparent")
+        row_tog.pack(fill="x", pady=25)
+        self.create_toggle(
+            row_tog, "✨ Smart ISRC (Popup if missing)", self.var_enable_isrc
+        )
+        self.create_toggle(row_tog, "🔒 Strict Case Match", self.var_strict_case)
 
-        # Action Area
-        act = tk.Frame(self.workspace, bg=THEME["bg"])
-        act.pack(fill="x", pady=10)
-        ActionButton(act, "Start Process", self.run_excel, width=180).pack(side="left")
+        self.create_action_btn("▶ Start Renaming", self.run_excel)
 
         # Log
-        self.log_area = scrolledtext.ScrolledText(
-            self.workspace,
-            height=8,
-            bg=THEME["surface_container"],
-            fg=THEME["primary"],
-            bd=0,
+        self.log_box = ctk.CTkTextbox(
+            self.content,
+            height=150,
+            fg_color=THEME["surface"],
+            text_color="white",
             font=FONTS["mono"],
+            corner_radius=RADIUS,
+            border_width=1,
+            border_color=THEME["outline"],
         )
-        self.log_area.pack(fill="both", pady=20)
+        self.log_box.pack(fill="x", padx=20, pady=20)
+        self.log_box.configure(state="disabled")
 
-    # --- UTILITY VIEW ---
+    # ================= UTILITY VIEW =================
     def show_util_view(self):
-        self.clear_ws()
-        self.switch_view(lambda: None, self.btn_util["btn"], self.btn_util["ind"])
-        self.header.config(text="Quick Utility")
+        self.set_active_nav(self.btn_util)
+        self.clear_content()
+        self.header_label.configure(text="Quick Utility")
 
-        # Config Card
-        card = SurfaceCard(self.workspace, width=950, height=380)
-        card.pack(anchor="w")
-        inner = card.inner
-
-        tk.Label(
-            inner,
-            text="BULK OPERATIONS",
-            bg=THEME["surface"],
-            fg=THEME["primary"],
-            font=FONTS["label"],
-        ).pack(anchor="w", pady=(0, 15))
-        self.make_file_row(
-            inner,
+        card_rules = self.create_card("Bulk Operations")
+        self.create_file_row(
+            card_rules,
             "Target Folder:",
             self.util_folder_path,
             lambda: [self.browse(self.util_folder_path), self.update_preview()],
         )
 
-        g = tk.Frame(inner, bg=THEME["surface"])
-        g.pack(fill="x", pady=20)
-        self.make_input_row(g, 0, 0, "Find:", self.util_find)
-        self.make_input_row(g, 0, 1, "Replace:", self.util_replace)
-        self.make_input_row(g, 1, 0, "Prefix:", self.util_prefix)
-        self.make_input_row(g, 1, 1, "Suffix:", self.util_suffix)
+        grid_in = ctk.CTkFrame(card_rules, fg_color="transparent")
+        grid_in.pack(fill="x", pady=15)
+        grid_in.grid_columnconfigure((0, 1), weight=1)
 
-        # Options
-        opt = tk.Frame(inner, bg=THEME["surface"])
-        opt.pack(fill="x", pady=10)
-        tk.Label(
-            opt,
-            text="Casing:",
-            bg=THEME["surface"],
-            fg=THEME["text_main"],
-            font=FONTS["body"],
+        self.create_input_pair(grid_in, "Find:", self.util_find, 0, 0)
+        self.create_input_pair(grid_in, "Replace:", self.util_replace, 0, 1)
+        self.create_input_pair(grid_in, "Prefix:", self.util_prefix, 1, 0)
+        self.create_input_pair(grid_in, "Suffix:", self.util_suffix, 1, 1)
+
+        row_opt = ctk.CTkFrame(card_rules, fg_color="transparent")
+        row_opt.pack(fill="x", pady=10)
+
+        ctk.CTkLabel(
+            row_opt, text="Casing:", text_color=THEME["text_main"], font=FONTS["body"]
         ).pack(side="left")
-        cb = ttk.Combobox(
-            opt,
-            textvariable=self.util_case,
+        cb_case = ctk.CTkComboBox(
+            row_opt,
+            variable=self.util_case,
             values=["No Change", "UPPERCASE", "lowercase", "Title Case"],
-            width=15,
+            width=180,
+            fg_color=THEME["surface_hover"],
+            border_width=1,
+            border_color=THEME["outline"],
+            button_color=THEME["primary"],
+            text_color="white",
+            corner_radius=RADIUS,
             font=FONTS["body"],
         )
-        cb.pack(side="left", padx=10)
-        cb.bind("<<ComboboxSelected>>", self.update_preview)
+        cb_case.pack(side="left", padx=10)
+        cb_case.configure(command=self.update_preview)
 
-        self.make_check(
-            opt, "Auto Numbering", self.util_num_enable, self.update_preview
+        self.create_toggle(
+            row_opt, "#️⃣ Auto Numbering", self.util_num_enable, self.update_preview
         )
 
         # Preview
-        tk.Label(
-            self.workspace,
-            text="PREVIEW (Double-Click file to Edit Manually)",
-            bg=THEME["bg"],
-            fg=THEME["secondary"],
+        ctk.CTkLabel(
+            self.content,
+            text="PREVIEW (Double-click to Edit)",
             font=FONTS["label"],
-        ).pack(anchor="w", pady=(25, 5))
+            text_color=THEME["text_dim"],
+        ).pack(anchor="w", padx=20, pady=(15, 5))
+
+        tree_frame = ctk.CTkFrame(
+            self.content,
+            fg_color=THEME["surface"],
+            corner_radius=RADIUS,
+            border_width=1,
+            border_color=THEME["outline"],
+        )
+        tree_frame.pack(fill="both", expand=True, padx=20, pady=5)
 
         self.tree = ttk.Treeview(
-            self.workspace, columns=("O", "N", "S"), show="headings", height=8
+            tree_frame, columns=("O", "N", "S"), show="headings", height=8
         )
         self.tree.heading("O", text="Original Name")
-        self.tree.column("O", width=350)
-        self.tree.heading("N", text="New Name (Editable)")
-        self.tree.column("N", width=350)
+        self.tree.column("O", width=400)
+        self.tree.heading("N", text="New Name")
+        self.tree.column("N", width=400)
         self.tree.heading("S", text="Status")
-        self.tree.column("S", width=100)
-        self.tree.pack(fill="both", expand=True)
-        self.tree.bind("<Double-1>", self.on_tree_double_click)  # MANUAL EDIT
+        self.tree.pack(fill="both", expand=True, padx=5, pady=5)
+        self.tree.bind("<Double-1>", self.on_tree_double_click)
 
-        act = tk.Frame(self.workspace, bg=THEME["bg"])
-        act.pack(fill="x", pady=20)
-        ActionButton(act, "Apply Changes", self.run_util, width=200).pack(side="left")
+        self.create_action_btn("✓ Apply Changes", self.run_util)
 
-    # --- WIDGET HELPERS ---
-    def make_file_row(self, parent, label, var, cmd):
-        f = tk.Frame(parent, bg=THEME["surface"])
-        f.pack(fill="x")
-        tk.Label(
+    # --- HELPERS ---
+    def create_card(self, title):
+        card = ctk.CTkFrame(
+            self.content, fg_color=THEME["surface"], corner_radius=RADIUS
+        )
+        card.pack(fill="x", padx=20, pady=(0, 20))
+        ctk.CTkLabel(
+            card, text=title, font=FONTS["sub"], text_color=THEME["primary"]
+        ).pack(anchor="w", padx=25, pady=(20, 15))
+        inner = ctk.CTkFrame(card, fg_color="transparent")
+        inner.pack(fill="x", padx=25, pady=(0, 25))
+        return inner
+
+    def create_file_row(self, parent, label, var, cmd):
+        f = ctk.CTkFrame(parent, fg_color="transparent")
+        f.pack(fill="x", pady=8)
+        ctk.CTkLabel(
             f,
             text=label,
-            bg=THEME["surface"],
-            fg=THEME["text_main"],
-            font=FONTS["body"],
-            width=15,
+            width=140,
             anchor="w",
-        ).pack(side="left")
-        e = InputField(f, width=500)
-        e.set_var(var)
-        e.pack(side="left", padx=10)
-        ActionButton(
-            f,
-            "Browse",
-            cmd,
-            width=80,
-            height=40,
-            bg=THEME["surface_container"],
-            fg=THEME["primary"],
+            text_color=THEME["text_main"],
+            font=FONTS["body"],
         ).pack(side="left")
 
-    def make_combo(self, parent, r, c, label):
-        f = tk.Frame(parent, bg=THEME["surface"])
-        f.grid(row=r, column=c, padx=20, pady=10, sticky="ew")
-        tk.Label(
+        # High Contrast Entry
+        ctk.CTkEntry(
             f,
-            text=label,
-            bg=THEME["surface"],
-            fg=THEME["secondary"],
+            textvariable=var,
+            height=45,
+            fg_color=THEME["surface_hover"],
+            border_width=1,
+            border_color=THEME["outline"],
+            text_color="white",
+            corner_radius=RADIUS,
             font=FONTS["body"],
-        ).pack(anchor="w")
-        cb = ttk.Combobox(f, font=FONTS["body"])
-        cb.pack(fill="x", pady=5)
+        ).pack(side="left", fill="x", expand=True, padx=10)
+
+        # --- BIGGER ICON BUTTON ---
+        ctk.CTkButton(
+            f,
+            text="📂",
+            width=70,
+            height=45,
+            command=cmd,
+            fg_color=THEME["surface_hover"],
+            hover_color="gray",
+            corner_radius=RADIUS,
+            text_color="white",
+            border_width=1,
+            border_color=THEME["outline"],
+            font=("Segoe UI", 30),  # HUGE FOLDER ICON
+        ).pack(side="left")
+
+    def create_combo(self, parent, label, r, c):
+        f = ctk.CTkFrame(parent, fg_color="transparent")
+        f.grid(row=r, column=c, padx=15, pady=10, sticky="ew")
+        ctk.CTkLabel(
+            f, text=label, text_color=THEME["text_dim"], anchor="w", font=FONTS["label"]
+        ).pack(fill="x", pady=(0, 5))
+
+        cb = ctk.CTkComboBox(
+            f,
+            height=45,
+            fg_color=THEME["surface_hover"],
+            border_width=1,
+            border_color=THEME["outline"],
+            button_color=THEME["primary"],
+            button_hover_color="white",
+            text_color="white",
+            dropdown_fg_color=THEME["surface_hover"],
+            corner_radius=RADIUS,
+            font=FONTS["body"],
+        )
+        cb.pack(fill="x")
         return cb
 
-    def make_input_row(self, parent, r, c, label, var):
-        f = tk.Frame(parent, bg=THEME["surface"])
-        f.grid(row=r, column=c, padx=15, pady=8, sticky="w")
-        tk.Label(
+    def create_input_pair(self, parent, label, var, r, c):
+        f = ctk.CTkFrame(parent, fg_color="transparent")
+        f.grid(row=r, column=c, padx=15, pady=10, sticky="ew")
+        ctk.CTkLabel(
+            f, text=label, text_color=THEME["text_dim"], anchor="w", font=FONTS["label"]
+        ).pack(fill="x", pady=(0, 5))
+        e = ctk.CTkEntry(
             f,
-            text=label,
-            bg=THEME["surface"],
-            fg=THEME["text_main"],
+            textvariable=var,
+            height=42,
+            fg_color=THEME["surface_hover"],
+            border_width=1,
+            border_color=THEME["outline"],
+            text_color="white",
+            corner_radius=RADIUS,
             font=FONTS["body"],
-        ).pack(side="left")
-        e = InputField(f, width=200)
-        e.set_var(var)
-        e.bind_key(self.update_preview)
-        e.pack(side="left", padx=10)
+        )
+        e.bind("<KeyRelease>", self.update_preview)
+        e.pack(fill="x")
 
-    def make_check(self, parent, text, var, cmd=None):
-        c = tk.Checkbutton(
+    def create_toggle(self, parent, text, var, cmd=None):
+        ctk.CTkCheckBox(
             parent,
             text=text,
             variable=var,
             command=cmd,
-            bg=THEME["surface"],
-            fg="white",
-            selectcolor=THEME["bg"],
-            activebackground=THEME["surface"],
+            fg_color=THEME["primary"],
+            hover_color=THEME["primary"],
+            checkmark_color="black",
             font=FONTS["body"],
-        )
-        c.pack(side="left", padx=20)
+            text_color=THEME["text_main"],
+            corner_radius=6,
+            border_width=2,
+            border_color=THEME["outline"],
+        ).pack(side="left", padx=(0, 25))
+
+    def create_action_btn(self, text, cmd):
+        # Black Text on Light Blue for Maximum Contrast
+        ctk.CTkButton(
+            self.content,
+            text=text,
+            command=cmd,
+            height=55,
+            width=240,
+            fg_color=THEME["primary"],
+            text_color="black",
+            font=FONTS["sub"],
+            corner_radius=28,
+            hover_color="white",
+        ).pack(anchor="w", padx=20, pady=25)
 
     # --- LOGIC ---
     def log(self, msg):
-        self.log_area.config(state="normal")
-        self.log_area.insert(tk.END, f"> {msg}\n")
-        self.log_area.see(tk.END)
-        self.log_area.config(state="disabled")
-        self.root.update()
+        self.log_box.configure(state="normal")
+        self.log_box.insert("end", f"> {msg}\n")
+        self.log_box.see("end")
+        self.log_box.configure(state="disabled")
+        self.update()
 
     def browse(self, var):
         f = filedialog.askdirectory()
         if f:
             var.set(f)
 
+    # Separate Browse Excel function to ensure proper flow
+    def browse_excel(self):
+        f = filedialog.askopenfilename(filetypes=[("Excel", "*.xlsx *.xls *.csv")])
+        if f:
+            self.excel_path.set(f)
+            self.load_excel_preview()
+
     def load_excel_preview(self):
-        f = filedialog.askopenfilename()
-        if not f:
+        file_path = self.excel_path.get()
+        if not file_path:
             return
-        self.excel_path.set(f)
+
         try:
-            hr = self.var_header_row.get() - 1
-            if hr < 0:
-                hr = 0
-            self.df = (
-                pd.read_csv(f, header=hr)
-                if f.endswith(".csv")
-                else pd.read_excel(f, header=hr)
-            )
+            h_row = self.var_header_row.get() - 1
+            if h_row < 0:
+                h_row = 0
+        except:
+            h_row = 1
+
+        try:
+            if file_path.endswith(".csv"):
+                self.df = pd.read_csv(file_path, header=h_row)
+            else:
+                self.df = pd.read_excel(file_path, header=h_row)
 
             cols = ["-- Select --"] + list(self.df.columns)
             for c in [
@@ -608,22 +502,56 @@ class UltimateRenamerApp:
                 self.combo_eng,
                 self.combo_isrc,
             ]:
-                c["values"] = cols
-                c.current(0)
-            self.log(f"Loaded {len(self.df)} rows.")
+                c.configure(values=cols)
+                c.set(cols[0])
+
+            # --- IMPROVED AUTO-SELECT LOGIC ---
+            if len(cols) > 1:
+                # 1. Folder
+                guesses = [c for c in cols if "folder" in str(c).lower()]
+                if guesses:
+                    self.combo_folder.set(guesses[0])
+
+                # 2. Filename
+                guesses = [
+                    c
+                    for c in cols
+                    if "file" in str(c).lower() and "name" in str(c).lower()
+                ]
+                if guesses:
+                    self.combo_file.set(guesses[0])
+
+                # 3. New Name (English Track Name)
+                guesses = [
+                    c
+                    for c in cols
+                    if "english track name" in str(c).lower()
+                    or "new track" in str(c).lower()
+                    or "english name" in str(c).lower()
+                ]
+                if guesses:
+                    self.combo_eng.set(guesses[0])
+
+                # 4. ISRC (ISRC Code)
+                guesses = [c for c in cols if "isrc" in str(c).lower()]
+                if guesses:
+                    self.combo_isrc.set(guesses[0])
+
+            self.log(f"Loaded {len(self.df)} rows (Header: {h_row+1}).")
+
         except Exception as e:
-            messagebox.showerror("Err", str(e))
+            messagebox.showerror("Error", f"Could not read Excel file.\n{e}")
 
     def run_excel(self):
         root = self.root_folder_path.get()
         if self.df is None:
-            return messagebox.showerror("Error", "Load Excel first")
+            return messagebox.showerror("Error", "Please load an Excel file first.")
 
         c_fol, c_fil = self.combo_folder.get(), self.combo_file.get()
         c_new, c_isrc = self.combo_eng.get(), self.combo_isrc.get()
         strict = self.var_strict_case.get()
 
-        self.log("Starting...")
+        self.log("Starting batch rename...")
         count = 0
 
         for i, row in self.df.iterrows():
@@ -639,7 +567,6 @@ class UltimateRenamerApp:
                     ext = ".wav"
                 target = name + ext
 
-                # Search
                 found_p, parent = None, None
                 paths = [os.path.join(root, fol), root]
                 for p in paths:
@@ -658,14 +585,13 @@ class UltimateRenamerApp:
                 if not found_p:
                     continue
 
-                # ISRC
                 isrc = ""
                 if self.var_enable_isrc.get():
                     if c_isrc != "-- Select --" and pd.notna(row[c_isrc]):
                         isrc = str(row[c_isrc]).strip()
                     if not isrc:
                         val = simpledialog.askstring(
-                            "ISRC Needed", f"Enter ISRC for:\n{target}"
+                            "ISRC Required", f"Enter ISRC for:\n{target}"
                         )
                         isrc = val.strip() if val else ""
 
@@ -682,10 +608,10 @@ class UltimateRenamerApp:
                     self.log(f"Renamed: {target} -> {final}")
                     count += 1
             except Exception as e:
-                self.log(f"Err {i}: {e}")
-        messagebox.showinfo("Done", f"Processed {count}")
+                self.log(f"Err Row {i}: {e}")
+        messagebox.showinfo("Done", f"Processed {count} files.")
 
-    # --- MANUAL EDIT LOGIC ---
+    # --- UTILITY LOGIC ---
     def on_tree_double_click(self, event):
         item_id = self.tree.identify_row(event.y)
         if not item_id:
@@ -693,12 +619,8 @@ class UltimateRenamerApp:
         vals = self.tree.item(item_id, "values")
         orig_name = vals[0]
 
-        # Prompt user
         manual = simpledialog.askstring(
-            "Manual Edit",
-            f"Enter new name for:\n{orig_name}",
-            initialvalue=vals[1],
-            parent=self.root,
+            "Manual Override", f"Enter new name for:\n{orig_name}", initialvalue=vals[1]
         )
         if manual:
             self.manual_overrides[orig_name] = manual
@@ -716,9 +638,8 @@ class UltimateRenamerApp:
         find, rep = self.util_find.get(), self.util_replace.get()
         pre, suf = self.util_prefix.get(), self.util_suffix.get()
         case, num = self.util_case.get(), self.util_num_enable.get()
-        ctr = self.util_num_start.get()
 
-        for name in files:
+        for i, name in enumerate(files):
             if name in self.manual_overrides:
                 final = self.manual_overrides[name]
                 status = "MANUAL"
@@ -734,8 +655,7 @@ class UltimateRenamerApp:
 
                 new_r = f"{pre}{new_r}{suf}"
                 if num:
-                    new_r += f"_{str(ctr).zfill(3)}"
-                    ctr += 1
+                    new_r += f"_{str(i+1).zfill(3)}"
 
                 final = new_r + ext
                 status = "Ready" if final != name else "No Change"
@@ -755,13 +675,11 @@ class UltimateRenamerApp:
                     c += 1
                 except:
                     pass
-
         self.manual_overrides = {}
         self.update_preview()
         messagebox.showinfo("Success", f"Renamed {c} files.")
 
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = UltimateRenamerApp(root)
-    root.mainloop()
+    app = RenamerApp()
+    app.mainloop()
