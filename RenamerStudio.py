@@ -296,7 +296,7 @@ class RenamerApp(ctk.CTk):
         cb_case.configure(command=self.update_preview)
 
         self.create_toggle(
-            row_opt, "#️⃣ Auto Numbering", self.util_num_enable, self.update_preview
+            row_opt, "🔃 Auto Numbering", self.util_num_enable, self.update_preview
         )
 
         # Preview
@@ -371,7 +371,7 @@ class RenamerApp(ctk.CTk):
         ctk.CTkButton(
             f,
             text="📂",
-            width=70,
+            width=60,
             height=45,
             command=cmd,
             fg_color=THEME["surface_hover"],
@@ -380,7 +380,7 @@ class RenamerApp(ctk.CTk):
             text_color="white",
             border_width=1,
             border_color=THEME["outline"],
-            font=("Segoe UI", 30),  # HUGE FOLDER ICON
+            font=("Segoe UI", 25),  # HUGE FOLDER ICON
         ).pack(side="left")
 
     def create_combo(self, parent, label, r, c):
